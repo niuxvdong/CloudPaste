@@ -4,19 +4,23 @@
  */
 
 import { ref, reactive } from "vue";
+import { useSessionStorage } from "@vueuse/core";
 import { normalizeFsPath } from "@/utils/fsPathUtils.js";
+import { createLogger } from "@/utils/logger.js";
 
 const STORAGE_KEY = "fs_path_tokens_v1";
+const log = createLogger("PathPassword");
 
 // 全局密码 token 存储（按规范化路径存储）
 const pathTokens = reactive(new Map());
 
+// sessionStorage 持久化
+const storedTokens = typeof window === "undefined" ? ref({}) : useSessionStorage(STORAGE_KEY, {});
+
 const loadTokensFromStorage = () => {
   if (typeof window === "undefined") return;
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
+    const data = storedTokens.value;
     if (!data || typeof data !== "object") return;
     Object.entries(data).forEach(([path, token]) => {
       if (typeof path === "string" && typeof token === "string" && token) {
@@ -25,7 +29,7 @@ const loadTokensFromStorage = () => {
       }
     });
   } catch (error) {
-    console.warn("恢复路径密码 token 失败，将仅使用内存存储:", error);
+    log.warn("恢复路径密码 token 失败，将仅使用内存存储:", error);
   }
 };
 
@@ -38,9 +42,9 @@ const persistTokensToStorage = () => {
         obj[path] = token;
       }
     });
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    storedTokens.value = obj;
   } catch (error) {
-    console.warn("持久化路径密码 token 失败:", error);
+    log.warn("持久化路径密码 token 失败:", error);
   }
 };
 
@@ -131,7 +135,8 @@ export function usePathPassword() {
   const savePathToken = (path, token) => {
     const normalized = normalizeFsPath(path);
     pathTokens.set(normalized, token);
-    console.log("保存路径密码token:", { path: normalized, token });
+    // 注意：不要把 token 内容打到控制台（可能被截图/上报），只记录长度用于排查
+    log.debug("保存路径密码token", { path: normalized, tokenLength: String(token || "").length });
     persistTokensToStorage();
   };
 

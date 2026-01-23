@@ -104,14 +104,18 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, watch, inject } from "vue";
 import { useI18n } from "vue-i18n";
+import { useEventListener, useWindowScroll } from "@vueuse/core";
 import VideoPlayer from "@/components/common/VideoPlayer.vue";
 import { useFsService } from "@/modules/fs";
 import LoadingIndicator from "@/components/common/LoadingIndicator.vue";
+import { createLogger } from "@/utils/logger.js";
 
 const { t } = useI18n();
+const log = createLogger("FsVideoPreview");
 const fsService = useFsService();
 const navigateToFile = inject("navigateToFile", null);
 const previewContainerRef = ref(null);
+const { y: windowScrollY } = useWindowScroll();
 
 // Props 定义
 const props = defineProps({
@@ -264,8 +268,8 @@ const goToVideoItem = (it) => {
   if (typeof navigateToFile === "function") {
     try {
       void navigateToFile(path);
-      window.scrollTo({ top: 0 });
-    } catch (e) { console.error(e); }
+      windowScrollY.value = 0;
+    } catch (e) { log.error(e); }
   }
 };
 
@@ -491,11 +495,9 @@ watch(
 
 onMounted(() => {
   originalTitle.value = document.title;
-  document.addEventListener("keydown", handleKeydown);
 });
 onBeforeUnmount(() => {
   if (originalTitle.value) document.title = originalTitle.value;
-  document.removeEventListener("keydown", handleKeydown);
 });
 
 const handleKeydown = (e) => {
@@ -513,6 +515,9 @@ const handleKeydown = (e) => {
   }
 };
 
+// 注册键盘事件（自动清理）
+useEventListener(document, "keydown", handleKeydown);
+
 // Events Proxy
 const handlePlay = (d) => { isPlaying.value = true; document.title = `${d?.video?.name || props.file?.name}`; emit("play", d); };
 const handlePause = (d) => { isPlaying.value = false; document.title = props.file?.name || originalTitle.value; emit("pause", d); };
@@ -522,7 +527,7 @@ const handleCanPlay = () => { emit("canplay"); emit("loaded"); };
 const handleTimeUpdate = (d) => { currentTime.value = d.currentTime; duration.value = d.duration; };
 const handleFullscreen = () => emit("fullscreen");
 const handleFullscreenExit = () => emit("fullscreenExit");
-const handlePlayerReady = (p) => console.log("Player Ready", p);
+const handlePlayerReady = () => {};
 
 </script>
 

@@ -75,12 +75,15 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useEventListener } from "@vueuse/core";
 import VideoPlayer from "@/components/common/VideoPlayer.vue";
 import LoadingIndicator from "@/components/common/LoadingIndicator.vue";
 import { useProviderSelector } from "@/composables/file-preview/useProviderSelector.js";
 import PreviewProviderHeader from "@/components/common/preview/PreviewProviderHeader.vue";
+import { createLogger } from "@/utils/logger.js";
 
 const { t } = useI18n();
+const log = createLogger("VideoPreview");
 
 // Props 定义
 const props = defineProps({
@@ -269,12 +272,11 @@ const handlePause = (data) => {
 const handleError = (error) => {
   // 忽略Service Worker相关的误报错误
   if (error?.target?.src?.includes(window.location.origin) && currentVideoData.value?.url) {
-    console.log("🎬 忽略Service Worker相关的误报错误，视频实际可以正常播放");
     return;
   }
 
   isPlaying.value = false;
-  console.error("视频播放错误:", error);
+  log.error("视频播放错误:", error);
   emit("error", error);
 };
 
@@ -388,15 +390,16 @@ const handleKeydown = (event) => {
   }
 };
 
+// 注册键盘事件（自动清理）
+useEventListener(document, "keydown", handleKeydown);
+
 // 生命周期钩子
 onMounted(() => {
   originalTitle.value = document.title;
-  document.addEventListener("keydown", handleKeydown);
 });
 
 onBeforeUnmount(() => {
   restoreOriginalTitle();
-  document.removeEventListener("keydown", handleKeydown);
 });
 </script>
 

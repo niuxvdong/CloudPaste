@@ -1,4 +1,6 @@
-import { ref, onMounted, onBeforeUnmount, unref } from "vue";
+import { ref, onMounted, unref } from "vue";
+import { useEventListener } from "@vueuse/core";
+import { createLogger } from "@/utils/logger.js";
 
 /**
  * 通用"元素全屏"工具（Fullscreen API）
@@ -11,6 +13,7 @@ import { ref, onMounted, onBeforeUnmount, unref } from "vue";
  *   - includeChildren：是否把“子元素进入全屏”也视为目标元素全屏（默认 true）
  */
 export function useElementFullscreen(targetRef, options = {}) {
+  const log = createLogger("ElementFullscreen");
   const includeChildren = options?.includeChildren !== false;
   const isFullscreen = ref(false);
 
@@ -35,13 +38,13 @@ export function useElementFullscreen(targetRef, options = {}) {
   const requestFullscreen = async () => {
     const el = getTargetEl();
     if (!el) {
-      console.warn("[useElementFullscreen] No target element found for fullscreen");
+      log.warn("[useElementFullscreen] No target element found for fullscreen");
       return;
     }
     try {
       await el.requestFullscreen();
     } catch (err) {
-      console.warn("[useElementFullscreen] Fullscreen request failed:", err);
+      log.warn("[useElementFullscreen] Fullscreen request failed:", err);
     } finally {
       syncState();
     }
@@ -77,13 +80,10 @@ export function useElementFullscreen(targetRef, options = {}) {
     syncState();
   };
 
-  onMounted(() => {
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    syncState();
-  });
+  useEventListener(document, "fullscreenchange", handleFullscreenChange);
 
-  onBeforeUnmount(() => {
-    document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  onMounted(() => {
+    syncState();
   });
 
   return {
